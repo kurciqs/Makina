@@ -1,0 +1,3 @@
+"F:\Programming\CLion 2023.1.2\bin\cmake\win\x64\bin\cmake.exe" -E rm -f CMakeFiles\Makina.dir/objects.a
+"F:\Programming\CLion 2023.1.2\bin\mingw\bin\ar.exe" qc CMakeFiles\Makina.dir/objects.a @CMakeFiles\Makina.dir\objects1
+"F:\Programming\CLion 2023.1.2\bin\mingw\bin\gcc.exe" -O3 -DNDEBUG -Wl,--whole-archive CMakeFiles\Makina.dir/objects.a -Wl,--no-whole-archive -o Makina.exe -Wl,--out-implib,libMakina.dll.a -Wl,--major-image-version,0,--minor-image-version,0 @CMakeFiles\Makina.dir\linkLibs.rsp
