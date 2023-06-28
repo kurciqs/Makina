@@ -396,7 +396,7 @@ void train_neural_network(Neural_Network* neural_network, float* input, float* d
     {
         int output_layer_size = neural_network->layer_sizes[neural_network->num_layers - 1];
         // NOTE: calculate output layer node values
-        float *cost_derivative = calculate_loss_derivative()
+        float *cost_derivative = calculate_loss_derivative();
     }
 
 
