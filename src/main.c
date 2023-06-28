@@ -3,7 +3,7 @@
 #include <string.h>
 #include <math.h>
 
-// TODO: add safeguards
+// TODO: add safeguards for matrix sizes etc
 
 typedef enum {
     Mean_Squared_Error,
