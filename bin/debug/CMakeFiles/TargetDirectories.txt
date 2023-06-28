@@ -1,3 +1,0 @@
-F:/Programming/Recreational/Makina/bin/debug/CMakeFiles/Makina.dir
-F:/Programming/Recreational/Makina/bin/debug/CMakeFiles/edit_cache.dir
-F:/Programming/Recreational/Makina/bin/debug/CMakeFiles/rebuild_cache.dir
