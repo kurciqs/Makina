@@ -227,16 +227,16 @@ Neural_Network* initiate_neural_network(int num_layers, int* layer_sizes) {
             int num_columns = neural_network->layer_sizes[i - 1];
             int bias_index = sum_biases_until_layer(neural_network, i) + j;
             // TODO: initiate with better starting biases
-//            *neural_network_bias_at(neural_network, i, j) = (float)(rand() % 100) / 100.0f - (float)(rand() % 100) / 100.0f;
-            *neural_network_bias_at(neural_network, i, j) = (float)bias_index*0.1f;
+            *neural_network_bias_at(neural_network, i, j) = (float)(rand() % 100) / 100.0f - (float)(rand() % 100) / 100.0f;
+//            *neural_network_bias_at(neural_network, i, j) = (float)bias_index*0.1f;
             *neural_network_bias_gradient_at(neural_network, i, j) = 0.0f;
 
             // NOTE: column in the matrix
             for (int k = 0; k < num_columns; k++) {
                 int weight_index = sum_weights_until_layer(neural_network, i) + j * num_columns + k;
                 // TODO: initiate with better starting weights
-//                *neural_network_weight_at(neural_network, i, j, k) = (float)(rand() % 100) / 100.0f - (float)(rand() % 100) / 100.0f;
-                *neural_network_weight_at(neural_network, i, j, k) = weight_index * 0.1f;
+                *neural_network_weight_at(neural_network, i, j, k) = (float)(rand() % 100) / 100.0f - (float)(rand() % 100) / 100.0f;
+//                *neural_network_weight_at(neural_network, i, j, k) = weight_index * 0.1f;
                 *neural_network_weight_gradient_at(neural_network, i, j, k) = 0.0f;
             }
         }
@@ -661,6 +661,9 @@ void neural_network_print_numeric_gradients(Neural_Network* neural_network, cons
         desired_outputs[t] = training_data[training_example_index * (input_size + output_size) + input_size + t];
     }
 
+//    float cost = neural_network_cost_for_one_training_example(neural_network_2, inputs, desired_outputs);
+//    printf("%f\n", cost);
+
     for (int i = 1; i < neural_network_2->num_layers; i++) {
         int num_rows = neural_network_2->layer_sizes[i];
         for (int j = 0; j < num_rows; j++) {
@@ -696,12 +699,10 @@ void neural_network_print_numeric_gradients(Neural_Network* neural_network, cons
                 float Jw1 = neural_network_cost_for_one_training_example(neural_network_2, inputs, desired_outputs);
                 *neural_network_weight_at(neural_network_2, i, j, k) -= EPSILON;
 
-                printf("%f %f\n", Jw0, Jw1);
                 *neural_network_weight_gradient_at(neural_network_2, i, j, k) = (Jw1 - Jw0) / (2.0f * EPSILON);
 
                 printf("Weight gradient %d %d %d: %f\n", i, j, k, *neural_network_weight_gradient_at(neural_network_2, i, j, k));
                 *neural_network_weight_gradient_at(neural_network, i, j, k) = *neural_network_weight_gradient_at(neural_network_2, i, j, k);
-
             }
         }
     }
@@ -729,10 +730,12 @@ void train_neural_network(Neural_Network* neural_network, const float* training_
             for (int j = 0; j < output_size; j++) {
                 outputs[j] = training_data[i * (input_size + output_size) + input_size + j];
             }
+
+            // NOTE CURRETLY USING NUMERICAL GRADIENTS MISTAKE IDENTIFIED KEEP EXPERIMENTING
+            // TODO GET BACKPROP VALUES ALIGNED WITH NUMERIC AND WE ARE YEEZi
+            neural_network_print_numeric_gradients(neural_network, training_data);
 //            update_gradients_one_example_neural_network(neural_network, inputs, outputs, num_training_samples);
 //            neural_network_print_gradients(neural_network);
-            // NOTE CURRETLY USING NUMERICAL GRADIENTS MISTAKE IDENTIFIED KEEP EXPERIMENTING
-            neural_network_print_numeric_gradients(neural_network, training_data);
             apply_gradients_neural_network(neural_network, learning_rate);
         }
     }
@@ -767,8 +770,8 @@ int main()
 
     // ------------------------
 
-    float testing_data[4 * 3] = {1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0};
-    float training_data[4 * 3] = {1, 1, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0};
+    float testing_data[4 * 3] = {1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
+    float training_data[4 * 3] = {1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
 
 //    printf("[LOG] Testing:\n");
 //    float neural_network_cost = test_neural_network(neural_network, testing_data, 4);
@@ -782,7 +785,6 @@ int main()
     printf("%f\n", outputs[0]);
 
     train_neural_network(neural_network, training_data, 1, 2.0f, 0, 10);
-
 
 //    printf("[LOG] Testing:\n");
 //    neural_network_cost = test_neural_network(neural_network, testing_data, 4);
