@@ -310,7 +310,7 @@ void evaluate_neural_network(Neural_Network* neural_network, const float* inputs
 #ifndef NDEBUG
         printf("Evaluation input at row %d = %f\n", x, layer_inputs[x]);
 #endif
-//        *neural_network_cross_layer_data_activations_at(neural_network, 0, x) = layer_inputs[x];
+        *neural_network_cross_layer_data_activations_at(neural_network, 0, x) = layer_inputs[x];
     }
 
     // NOTE: loop through all the layers
@@ -510,7 +510,8 @@ void update_gradients_one_example_neural_network(Neural_Network* neural_network,
 #ifndef NDEBUG
     printf("[LOG] Gradients:\n");
 #endif
-    // NOTE: update gradients
+    // NOTE the other layers
+    // TODO SOMETHINGS FAULTY HERE SPECIFICALLY AT THE OL WEIGHTS
     for (int l = neural_network->num_layers - 2; l > 0; l--){
         for (int j = 0; j < neural_network->layer_sizes[l]; j++) {
             float cda_local = 0.0f;
@@ -521,9 +522,9 @@ void update_gradients_one_example_neural_network(Neural_Network* neural_network,
                         activation_function_derivative(*neural_network_cross_layer_data_weighted_inputs_at(neural_network, l+1, p), Sigmoid)
                         *
                         cost_derivative_activations[sum_biases_until_layer(neural_network, l+2) - 1 - p];
+
             }
             cost_derivative_activations[sum_biases_until_layer(neural_network, l+1) - 1 - j] = cda_local;
-
             *neural_network_bias_gradient_at(neural_network, l, j) =
                     (1.0f/(float)number_total_training_examples)
                     *
@@ -536,18 +537,19 @@ void update_gradients_one_example_neural_network(Neural_Network* neural_network,
             printf("bias gradient at layer %d, row %d = %f\n", l, j, *neural_network_bias_gradient_at(neural_network, l, j));
 #endif
 
-
             for (int k = 0; k < neural_network->layer_sizes[l - 1]; k++) {
-                // TODO ***MEGA SUPER WARNING ULTRA*** THIS IS INVERSED BECAUSE OF COMPARISON TO NUMERICAL GRADIENTS NO IDEA WHY BUT LET'S TRY IT ANYWAY
-                // *neural_network_weight_gradient_at(neural_network, l, j, k) =
-                *neural_network_weight_gradient_at(neural_network, l, j, neural_network->layer_sizes[l - 1] - 1 - k) =
+                // TODO ***MEGA SUPER WARNING ULTRA*** THIS IS INVERSED BECAUSE OF COMPARISON TO NUMERICAL GRADIENTS NO IDEA WHY BUT LET'S TRY IT ANYWAY [[[NOT RN]]]
+                 *neural_network_weight_gradient_at(neural_network, l, j, k) =
+//                *neural_network_weight_gradient_at(neural_network, l, j, neural_network->layer_sizes[l - 1] - 1 - k) =
                         (1.0f/(float)number_total_training_examples)
                         *
+                        // NOTE THE LAYER 0 ACTIVATIONS ARE ACCESSED BUT NEVER EXISTED
                         *neural_network_cross_layer_data_activations_at(neural_network, l - 1, k)
                         *
                         activation_function_derivative(*neural_network_cross_layer_data_weighted_inputs_at(neural_network, l, j), Sigmoid)
                         *
                         cda_local;
+
 #ifndef NDEBUG
                 printf("weight gradient at layer %d, row %d, column %d = %f\n", l, j, k, *neural_network_weight_gradient_at(neural_network, l, j, k));
 #endif
@@ -707,6 +709,8 @@ void neural_network_print_numeric_gradients(Neural_Network* neural_network, cons
         }
     }
 
+    free((void*)inputs);
+    free((void*)desired_outputs);
     free((void*)neural_network_2);
 }
 
@@ -733,9 +737,12 @@ void train_neural_network(Neural_Network* neural_network, const float* training_
 
             // NOTE CURRETLY USING NUMERICAL GRADIENTS MISTAKE IDENTIFIED KEEP EXPERIMENTING
             // TODO GET BACKPROP VALUES ALIGNED WITH NUMERIC AND WE ARE YEEZi
+            // NOTE NUMERICAL RESULTS WORK AT LEAST FOR SINGLE EXAMPLES FOR NOW THAT'S ABOUT AS MUCH AS I CAN GRAB ONTO SO YE IDK
+            // NOTE TRY TO ALIGN NUMERICAL WITH BACKPROP
+            // TODO THEN GO THROUGH THE TRAINING METHODS
+            update_gradients_one_example_neural_network(neural_network, inputs, outputs, num_training_samples);
+            neural_network_print_gradients(neural_network);
             neural_network_print_numeric_gradients(neural_network, training_data);
-//            update_gradients_one_example_neural_network(neural_network, inputs, outputs, num_training_samples);
-//            neural_network_print_gradients(neural_network);
             apply_gradients_neural_network(neural_network, learning_rate);
         }
     }
@@ -765,13 +772,13 @@ void train_neural_network(Neural_Network* neural_network, const float* training_
 
 int main()
 {
-    int  layer_sizes[3] = {2, 3, 1};
+    int  layer_sizes[3] = {2, 3,  1};
     Neural_Network* neural_network = initiate_neural_network(sizeof(layer_sizes) / sizeof(int), layer_sizes);
 
     // ------------------------
 
     float testing_data[4 * 3] = {1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
-    float training_data[4 * 3] = {1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
+    float training_data[4 * 3] = {0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
 
 //    printf("[LOG] Testing:\n");
 //    float neural_network_cost = test_neural_network(neural_network, testing_data, 4);
@@ -779,12 +786,12 @@ int main()
 
 //    for (int i = 0; i < 100; i++)
 
-    float inputs[2] = {training_data[0], training_data[1]};
+    float inputs[2] = {0, 1 };
     float outputs[1];
     evaluate_neural_network(neural_network, inputs, outputs);
     printf("%f\n", outputs[0]);
 
-    train_neural_network(neural_network, training_data, 1, 2.0f, 0, 10);
+    train_neural_network(neural_network, training_data, 1, 2.0f, 0, 1);
 
 //    printf("[LOG] Testing:\n");
 //    neural_network_cost = test_neural_network(neural_network, testing_data, 4);
