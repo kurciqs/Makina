@@ -454,7 +454,7 @@ float calculate_loss_derivative(float* output, float* desired_output, float* nod
     return loss_derivative;
 }
 
-void update_gradients_one_example_neural_network(Neural_Network* neural_network, float* input, float* desired_output, int number_total_training_examples) {
+void compute_gradients_neural_network(Neural_Network* neural_network, float* input, float* desired_output, int number_total_training_examples) {
 #ifndef NDEBUG
     printf("\n[LOG] Updating gradients for ONE training example started\n");
 #endif
@@ -683,7 +683,7 @@ void neural_network_print_numeric_gradients(Neural_Network* neural_network, cons
             *neural_network_bias_at(neural_network_2, i, j) -= EPSILON;
 
             *neural_network_bias_gradient_at(neural_network_2, i, j) = (Jb1 - Jb0) / (2.0f * EPSILON);
-            *neural_network_bias_gradient_at(neural_network, i, j) = *neural_network_bias_gradient_at(neural_network_2, i, j);
+//            *neural_network_bias_gradient_at(neural_network, i, j) = *neural_network_bias_gradient_at(neural_network_2, i, j);
 
             printf("Bias gradient %d %d: %f\n", i, j, *neural_network_bias_gradient_at(neural_network_2, i, j));
 
@@ -704,7 +704,7 @@ void neural_network_print_numeric_gradients(Neural_Network* neural_network, cons
                 *neural_network_weight_gradient_at(neural_network_2, i, j, k) = (Jw1 - Jw0) / (2.0f * EPSILON);
 
                 printf("Weight gradient %d %d %d: %f\n", i, j, k, *neural_network_weight_gradient_at(neural_network_2, i, j, k));
-                *neural_network_weight_gradient_at(neural_network, i, j, k) = *neural_network_weight_gradient_at(neural_network_2, i, j, k);
+//                *neural_network_weight_gradient_at(neural_network, i, j, k) = *neural_network_weight_gradient_at(neural_network_2, i, j, k);
             }
         }
     }
@@ -715,57 +715,44 @@ void neural_network_print_numeric_gradients(Neural_Network* neural_network, cons
 }
 
 // NOTE: data is just flat array x0, ..., xn-1, y0, ym-1, x00, ..., x0n-1, ...
-void train_neural_network(Neural_Network* neural_network, const float* training_data, int num_training_samples, float learning_rate, int mode, int random_training_epochs) {
+void train_neural_network(Neural_Network* neural_network, const float* training_data, int num_training_samples, float learning_rate, int training_epochs) {
 
     int input_size = neural_network->layer_sizes[0];
     int output_size = neural_network->layer_sizes[neural_network->num_layers - 1];
     float* inputs = (float*)malloc(input_size * sizeof(float));
     float* outputs = (float*)malloc(output_size * sizeof(float));
 
-    // NOTE: random sampling
-    if (mode == 0) {
-        for (int e = 0; e < random_training_epochs; e++) {
-            int i = rand() % num_training_samples;
-            // NOTE: which input of the sample are we on and we write it into an array
-            for (int j = 0; j < input_size; j++) {
+    /*
+
+    // NOTE: which input of the sample are we on and we write it into an array
+    for (int j = 0; j < input_size; j++) {
                 inputs[j] = training_data[i * (input_size + output_size) + j];
             }
-            // NOTE: which output of the sample are we on and we write it into an array
-            for (int j = 0; j < output_size; j++) {
-                outputs[j] = training_data[i * (input_size + output_size) + input_size + j];
-            }
-
-            // NOTE CURRETLY USING NUMERICAL GRADIENTS MISTAKE IDENTIFIED KEEP EXPERIMENTING
-            // TODO GET BACKPROP VALUES ALIGNED WITH NUMERIC AND WE ARE YEEZi
-            // NOTE NUMERICAL RESULTS WORK AT LEAST FOR SINGLE EXAMPLES FOR NOW THAT'S ABOUT AS MUCH AS I CAN GRAB ONTO SO YE IDK
-            // NOTE TRY TO ALIGN NUMERICAL WITH BACKPROP
-            // TODO THEN GO THROUGH THE TRAINING METHODS
-            update_gradients_one_example_neural_network(neural_network, inputs, outputs, num_training_samples);
-            neural_network_print_gradients(neural_network);
-            neural_network_print_numeric_gradients(neural_network, training_data);
-            apply_gradients_neural_network(neural_network, learning_rate);
-        }
-    }
-        // NOTE: flat sampling
-    else if (mode == 1) {
-        // NOTE: which sample are we on
-        for (int i = 0; i < num_training_samples; i++) {
-            // NOTE: which input of the sample are we on and we write it into an array
-            for (int j = 0; j < input_size; j++) {
-                inputs[j] = training_data[i * (input_size + output_size) + j];
-            }
-            // NOTE: which output of the sample are we on and we write it into an array
-            for (int j = 0; j < output_size; j++) {
-                outputs[j] = training_data[i * (input_size + output_size) + input_size + j];
-            }
-            update_gradients_one_example_neural_network(neural_network, inputs, outputs, num_training_samples);
-        }
-    }
-    else {
-        printf("[ERROR] Training mode %d not recognized.\n", mode);
+    // NOTE: which output of the sample are we on and we write it into an array
+    for (int j = 0; j < output_size; j++) {
+        outputs[j] = training_data[i * (input_size + output_size) + input_size + j];
     }
 
-//    apply_gradients_neural_network(neural_network, learning_rate);
+    */
+
+    for (int e = 0; e < training_epochs; e++) {
+        int i = rand() % num_training_samples;
+        // NOTE: which input of the sample are we on and we write it into an array
+        for (int j = 0; j < input_size; j++) {
+            inputs[j] = training_data[i * (input_size + output_size) + j];
+        }
+        // NOTE: which output of the sample are we on and we write it into an array
+        for (int j = 0; j < output_size; j++) {
+            outputs[j] = training_data[i * (input_size + output_size) + input_size + j];
+        }
+
+        compute_gradients_neural_network(neural_network, inputs, outputs, num_training_samples);
+        apply_gradients_neural_network(neural_network, learning_rate);
+//        neural_network_print_gradients(neural_network);
+//        neural_network_print_numeric_gradients(neural_network, training_data);
+    }
+
+
     free((void*)inputs);
     free((void*)outputs);
 }
@@ -778,7 +765,7 @@ int main()
     // ------------------------
 
     float testing_data[4 * 3] = {1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
-    float training_data[4 * 3] = {0, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
+    float training_data[4 * 3] = {0, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1};
 
 //    printf("[LOG] Testing:\n");
 //    float neural_network_cost = test_neural_network(neural_network, testing_data, 4);
@@ -786,12 +773,14 @@ int main()
 
 //    for (int i = 0; i < 100; i++)
 
-    float inputs[2] = {0, 1 };
+    float inputs[2] = {1, 0 };
     float outputs[1];
     evaluate_neural_network(neural_network, inputs, outputs);
     printf("%f\n", outputs[0]);
 
-    train_neural_network(neural_network, training_data, 1, 2.0f, 0, 1);
+    train_neural_network(neural_network, training_data, 4, 0.5f, 500);
+
+
 
 //    printf("[LOG] Testing:\n");
 //    neural_network_cost = test_neural_network(neural_network, testing_data, 4);
