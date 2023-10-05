@@ -63,8 +63,8 @@ int sum_cross_layer_data_weighted_inputs_until_layer(Neural_Network* neural_netw
 }
 
 float* neural_network_cross_layer_data_activations_at(Neural_Network* neural_network, int layer, int index) {
-//    if (layer == 0 || layer >= neural_network->num_layers)
-//        EXIT("[ERROR] Accessed non existent activation!")
+    if (layer < 0 || layer >= neural_network->num_layers)
+        EXIT("[ERROR] Accessed non existent activation!")
     return &neural_network->cross_layer_data->activations[sum_cross_layer_data_activations_until_layer(neural_network, layer) + index];
 }
 
@@ -235,21 +235,6 @@ Neural_Network* initiate_neural_network(int num_layers, int* layer_sizes) {
             }
         }
     }
-
-    /* for (int i = 1; i < neural_network->num_layers; i++) {
-        int num_rows = neural_network->layer_sizes[i];
-        printf("layer %d\n", i);
-        for (int j = 0; j < num_rows; j++) {
-            int num_columns = neural_network->layer_sizes[i - 1];
-            float bias = *neural_network_bias_at(neural_network, i, j);
-            printf("bias at layer %d, row %d = %f\n", i, j, bias);
-            // NOTE: column in the matrix
-            for (int k = 0; k < num_columns; k++) {
-                float weight = *neural_network_weight_at(neural_network, i, j, k);
-                printf("weight at layer %d, row %d, column %d = %f\n", i, j, k, weight);
-            }
-        }
-    } */
 
     // NOTE: cross layer data, serves to save: activations, weighted inputs and ... across multiple layers
     neural_network->cross_layer_data = (Cross_Layer_Data*)malloc(sizeof(Cross_Layer_Data));
@@ -457,6 +442,7 @@ void compute_gradients_neural_network(Neural_Network* neural_network, float* inp
 
     // NOTE: essentially the number of activations since every neuron except for the input neurons has technically its own bias
     float* cost_derivative_activations = (float*)malloc(sum_biases_until_layer(neural_network, neural_network->num_layers) * sizeof(float));
+    memset(cost_derivative_activations, 0, sum_biases_until_layer(neural_network, neural_network->num_layers) * sizeof(float));
 
     //NOTE: the output layer (extra)
     {
@@ -513,7 +499,6 @@ void compute_gradients_neural_network(Neural_Network* neural_network, float* inp
                         activation_function_derivative(*neural_network_cross_layer_data_weighted_inputs_at(neural_network, l+1, p), Sigmoid)
                         *
                         cost_derivative_activations[sum_biases_until_layer(neural_network, l+2) - 1 - p];
-
             }
             cost_derivative_activations[sum_biases_until_layer(neural_network, l+1) - 1 - j] += cda_local;
             *neural_network_bias_gradient_at(neural_network, l, j) =
@@ -532,13 +517,11 @@ void compute_gradients_neural_network(Neural_Network* neural_network, float* inp
                  *neural_network_weight_gradient_at(neural_network, l, j, k) +=
                         (1.0f/(float)number_total_training_examples)
                         *
-                        // NOTE THE LAYER 0 ACTIVATIONS ARE ACCESSED BUT NEVER EXISTED
                         *neural_network_cross_layer_data_activations_at(neural_network, l - 1, k)
                         *
                         activation_function_derivative(*neural_network_cross_layer_data_weighted_inputs_at(neural_network, l, j), Sigmoid)
                         *
                         cda_local;
-
 #ifndef DETAILED_DEBUG
                 printf("weight gradient at layer %d, row %d, column %d = %f\n", l, j, k, *neural_network_weight_gradient_at(neural_network, l, j, k));
 #endif
@@ -652,9 +635,6 @@ void neural_network_print_numeric_gradients(Neural_Network* neural_network, cons
         desired_outputs[t] = training_data[training_example_index * (input_size + output_size) + input_size + t];
     }
 
-//    float cost = neural_network_cost_for_one_training_example(neural_network_2, inputs, desired_outputs);
-//    printf("%f\n", cost);
-
     for (int i = 1; i < neural_network_2->num_layers; i++) {
         int num_rows = neural_network_2->layer_sizes[i];
         for (int j = 0; j < num_rows; j++) {
@@ -703,7 +683,7 @@ void neural_network_print_numeric_gradients(Neural_Network* neural_network, cons
     free((void*)neural_network_2);
 }
 
-void train_neural_network(Neural_Network* neural_network, float* training_data, int num_training_samples, float learning_rate, int training_epochs) {
+void train_neural_network(Neural_Network* neural_network, float* training_data, int num_training_samples, float learning_rate, int training_epochs, int print_cost_every) {
     // NOTE: data is just flat array x0, ..., xn-1, y0, ym-1, x00, ..., x0n-1, ...
 
     int input_size = neural_network->layer_sizes[0];
@@ -723,9 +703,13 @@ void train_neural_network(Neural_Network* neural_network, float* training_data, 
         }
 
         compute_gradients_neural_network(neural_network, inputs, outputs, num_training_samples);
+//        neural_network_print_gradients(neural_network);
+//        neural_network_print_numeric_gradients(neural_network, training_data);
         apply_gradients_neural_network(neural_network, learning_rate);
-//        float neural_network_cost = test_neural_network(neural_network, training_data, num_training_samples);
-//        printf("%f,\n", neural_network_cost);
+        if (e % (print_cost_every) == 0) {
+            float neural_network_cost = test_neural_network(neural_network, training_data, num_training_samples);
+            printf("%f\n", neural_network_cost);
+        }
     }
 
     free((void*)inputs);
@@ -734,8 +718,7 @@ void train_neural_network(Neural_Network* neural_network, float* training_data, 
 
 int main()
 {
-
-    int layer_sizes[3] = {2, 5, 1};
+    int layer_sizes[4] = {2, 5,  2, 1};
     Neural_Network *neural_network = initiate_neural_network(sizeof(layer_sizes) / sizeof(int), layer_sizes);
 
     // ------------------------
@@ -743,16 +726,12 @@ int main()
     float testing_data[4 * 3] = {1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
     float training_data[4 * 3] = {1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
 
-//  float neural_network_cost = test_neural_network(neural_network, testing_data, 4);
-//  printf("\n[LOG] Cost before training: %f\n", neural_network_cost);
+    // TODO implement the iris dataset
 
     float inputs[2] = {training_data[0], training_data[1]};
     float outputs[1];
 
-    train_neural_network(neural_network, training_data, 4, 0.5f, 20000);
-
-    float neural_network_cost = test_neural_network(neural_network, testing_data, 4);
-    printf("\n[LOG] Cost after training: %f\n", +neural_network_cost);
+    train_neural_network(neural_network, training_data, 4, 0.5f, 100000, 100000-1);
 
     evaluate_neural_network(neural_network, inputs, outputs, 1);
     printf("%f %f => %f\n", inputs[0], inputs[1], outputs[0]);
