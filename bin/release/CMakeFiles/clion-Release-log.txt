@@ -1,10 +1,10 @@
 "F:\Programming\CLion 2023.1.2\bin\cmake\win\x64\bin\cmake.exe" -DCMAKE_BUILD_TYPE=Release -G "MinGW Makefiles" -S F:\Programming\Recreational\Makina -B F:\Programming\Recreational\Makina\bin\release
--- The C compiler identification is GNU 11.2.0
+-- The C compiler identification is GNU 13.1.0
 -- Detecting C compiler ABI info
 -- Detecting C compiler ABI info - done
 -- Check for working C compiler: F:/Programming/CLion 2023.1.2/bin/mingw/bin/gcc.exe - skipped
 -- Detecting C compile features
 -- Detecting C compile features - done
--- Configuring done
--- Generating done
+-- Configuring done (2.0s)
+-- Generating done (0.0s)
 -- Build files have been written to: F:/Programming/Recreational/Makina/bin/release

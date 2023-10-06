@@ -573,10 +573,11 @@ float neural_network_cost_for_one_training_example(Neural_Network* neural_networ
     evaluate_neural_network(neural_network, input, output_values, 1);
 
     float cost = calculate_loss(output_values, desired_output, NULL, neural_network->layer_sizes[neural_network->num_layers - 1], Mean_Squared_Error);
+
     return cost;
 }
 
-float test_neural_network(Neural_Network* neural_network, float* testing_data, int num_testing_samples) {
+float test_neural_network(Neural_Network* neural_network, const float* testing_data, int num_testing_samples) {
     // NOTE: returns essentially the average cost
     float total_cost = 0.0f;
 
@@ -597,6 +598,7 @@ float test_neural_network(Neural_Network* neural_network, float* testing_data, i
         }
         total_cost += neural_network_cost_for_one_training_example(neural_network, inputs, outputs);
     }
+
 
     return total_cost / (float)num_testing_samples;
 }
@@ -685,6 +687,7 @@ void neural_network_print_numeric_gradients(Neural_Network* neural_network, cons
 
 void train_neural_network(Neural_Network* neural_network, float* training_data, int num_training_samples, float learning_rate, int training_epochs, int print_cost_every) {
     // NOTE: data is just flat array x0, ..., xn-1, y0, ym-1, x00, ..., x0n-1, ...
+    printf("[LOG] Training for %d iterations.\n", training_epochs);
 
     int input_size = neural_network->layer_sizes[0];
     int output_size = neural_network->layer_sizes[neural_network->num_layers - 1];
@@ -708,7 +711,7 @@ void train_neural_network(Neural_Network* neural_network, float* training_data, 
         apply_gradients_neural_network(neural_network, learning_rate);
         if (e % (print_cost_every) == 0) {
             float neural_network_cost = test_neural_network(neural_network, training_data, num_training_samples);
-            printf("%f\n", neural_network_cost);
+            printf("[LOG] Cost on training_data at iteration %d = %f\n", e, neural_network_cost);
         }
     }
 
@@ -716,28 +719,99 @@ void train_neural_network(Neural_Network* neural_network, float* training_data, 
     free((void*)outputs);
 }
 
+float* read_cvs_into_dataset(const char* file_name, int start_at, int end_at, int* input_size, int* output_size) {
+    FILE *file = fopen(file_name, "r");
+    // TODO maybe implement so that you can chose the first output and so on in the cvs file and maybe have the o1, i2 and so on determine the order instead of the placement in the cvs
+
+    if (file == NULL) {
+        char err_msg[40];
+        sprintf(err_msg, "[LOG]: Error opening file '%s'\n", file_name);
+        perror(err_msg);
+        return NULL;
+    }
+
+    char line[100];
+    char *token;
+
+    int data_point_size = 0;
+
+    (*input_size) = 0;
+    (*output_size) = 0;
+
+    while (fgets(line, sizeof(line), file) != NULL) {
+        token = strtok(line, ",");
+        while (token != NULL) {
+            data_point_size++;
+            token[strcspn(token, "\n")] = 0;
+            if (strcmp(token, "i") == 0) {
+                (*input_size)++;
+            }
+            if (strcmp(token, "o") == 0) {
+                (*output_size)++;
+            }
+            token = strtok(NULL, ",");
+        }
+        break;
+    }
+
+    int num_elements = (int)((float)data_point_size * (float)(end_at - start_at + 1));
+    float* dataset = (float*) malloc(sizeof(float) * num_elements);
+
+    int line_ind = 1;
+    int data_ind = 0;
+
+    while (fgets(line, sizeof(line), file) != NULL) {
+        token = strtok(line, ",");
+
+        while (token != NULL) {
+            if (line_ind >= start_at && line_ind <= end_at) {
+                float token_val = (float)strtof(token, NULL);
+//                printf("%f %d %d\n", token_val, line_ind, data_ind);
+                dataset[data_ind++] = token_val;
+            }
+
+            token = strtok(NULL, ",");
+        }
+        line_ind++;
+    }
+
+    printf("[LOG] Read csv file %s from line %d to line %d. Input size = %d. Output size = %d. Elements total = %d\n",
+            file_name, start_at, end_at, *input_size, *output_size, num_elements);
+
+    fclose(file);
+
+    return dataset;
+}
+
+// TODO serialization
+// TODO minst dataset testing
+
 int main()
 {
-    int layer_sizes[4] = {2, 5,  2, 1};
+    int input_size, output_size;
+    float* training_data = read_cvs_into_dataset("../../res/iris_dataset_training.csv", 1, 135, &input_size, &output_size);
+    float* testing_data = read_cvs_into_dataset("../../res/iris_dataset_testing.csv", 1, 15, &input_size, &output_size);
+
+    int layer_sizes[4] = {input_size, 5,  4, output_size};
     Neural_Network *neural_network = initiate_neural_network(sizeof(layer_sizes) / sizeof(int), layer_sizes);
 
     // ------------------------
 
-    float testing_data[4 * 3] = {1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
-    float training_data[4 * 3] = {1, 0, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0};
+    train_neural_network(neural_network, training_data, 135, 5.0f, 100000, 100000-1);
 
-    // TODO implement the iris dataset
+    float neural_network_cost = test_neural_network(neural_network, testing_data, 15);
+    printf("[LOG] Cost on testing_data = %f\n", neural_network_cost);
 
-    float inputs[2] = {training_data[0], training_data[1]};
-    float outputs[1];
-
-    train_neural_network(neural_network, training_data, 4, 0.5f, 100000, 100000-1);
-
+    // NOTE example from iris_dataset_testing.csv, should return 1.0,0.0,0.0
+    float inputs[4] = {5.0f,3.4f,1.5f,0.2f};
+    float outputs[3];
     evaluate_neural_network(neural_network, inputs, outputs, 1);
-    printf("%f %f => %f\n", inputs[0], inputs[1], outputs[0]);
+    printf("{%f %f %f %f} => {%f %f %f}\n", inputs[0], inputs[1], inputs[2], inputs[3], outputs[0], outputs[1], outputs[2]);
 
     // ------------------------
 
+    free((void*)training_data);
+    free((void*)testing_data);
     destroy_neural_network(neural_network);
 
     return 0;
