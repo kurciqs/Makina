@@ -2,6 +2,7 @@
 #include<stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 
 #define EPSILON 0.01f
 #define EXIT(x) {printf(x); exit(-69);}
@@ -265,8 +266,8 @@ Neural_Network* initiate_neural_network(int num_layers, int* layer_sizes) {
     }
 
     // NOTE: finally fill out these two for easier use
-    neural_network->num_weights = sum_weights_until_layer(neural_network, neural_network->num_layers - 1);
-    neural_network->num_biases = sum_biases_until_layer(neural_network, neural_network->num_layers - 1);
+    neural_network->num_weights = sum_weights_until_layer(neural_network, neural_network->num_layers);
+    neural_network->num_biases = sum_biases_until_layer(neural_network, neural_network->num_layers);
 
     return neural_network;
 }
@@ -687,7 +688,10 @@ void neural_network_print_numeric_gradients(Neural_Network* neural_network, cons
 
 void train_neural_network(Neural_Network* neural_network, float* training_data, int num_training_samples, float learning_rate, int training_epochs, int print_cost_every) {
     // NOTE: data is just flat array x0, ..., xn-1, y0, ym-1, x00, ..., x0n-1, ...
-    printf("[LOG] Training for %d iterations.\n", training_epochs);
+    clock_t t;
+    t = clock();
+
+    printf("\n[LOG] Training for %d iterations.\n", training_epochs);
 
     int input_size = neural_network->layer_sizes[0];
     int output_size = neural_network->layer_sizes[neural_network->num_layers - 1];
@@ -717,6 +721,10 @@ void train_neural_network(Neural_Network* neural_network, float* training_data, 
 
     free((void*)inputs);
     free((void*)outputs);
+
+    t = clock() - t;
+    float time_taken = (float)(((double)t)/CLOCKS_PER_SEC);
+    printf("[LOG] Training for %d iterations took %f seconds.\n\n", training_epochs, time_taken);
 }
 
 float* read_cvs_into_dataset(const char* file_name, int start_at, int end_at, int* input_size, int* output_size) {
@@ -784,35 +792,134 @@ float* read_cvs_into_dataset(const char* file_name, int start_at, int end_at, in
 }
 
 // TODO serialization
+void serialize_neural_network(Neural_Network* neural_network, const char* file_name) {
+    FILE* fp = fopen(file_name, "wb");
+
+    if (fp == NULL) {
+        perror("[ERROR] Error opening file for serializing network.");
+        return;
+    }
+
+    // NOTE i need the architecture, the weights and biases as well
+    int total_size = neural_network->num_layers + neural_network->num_weights + neural_network->num_biases + 1;
+    float* data = (float*) malloc(sizeof(float)*total_size);
+
+    // NOTE specifically the number of layers is stored, from that all follows
+    data[0] = (float)neural_network->num_layers;
+
+    for (int i = 0; i < neural_network->num_layers; i++) {
+        data[i + 1] = (float)neural_network->layer_sizes[i];
+    }
+
+    int j = 0;
+    for (int i = neural_network->num_layers; i < neural_network->num_layers + neural_network->num_weights; i++) {
+        data[i + 1] = neural_network->weights[j];
+        j++;
+    }
+
+    j = 0;
+    for (int i = neural_network->num_layers + neural_network->num_weights; i < neural_network->num_layers + neural_network->num_weights + neural_network->num_biases; i++) {
+        data[i + 1] = neural_network->biases[j];
+        j++;
+    }
+
+    fwrite(data, sizeof(float), total_size, fp);
+
+    printf("\n[LOG] Serialized neural network in file %s.\n\n", file_name);
+
+    fclose(fp);
+}
+
+Neural_Network* deserialize_neural_network(const char* file_name) {
+    FILE* file = fopen(file_name, "rb");
+
+    if (file == NULL) {
+        perror("[ERROR] Error opening file for deserializing network.");
+        return NULL;
+    }
+
+    fseek(file, 0, SEEK_END);
+    long fileSize = ftell(file);
+
+    int dataSize;
+    dataSize = fileSize / sizeof(float);
+
+    float* data = (float*)malloc(fileSize);
+
+    fseek(file, 0, SEEK_SET);
+    fread(data, sizeof(float), dataSize, file);
+
+    fclose(file);
+
+    int layer_sizes[(int)data[0]];
+    for (int i = 0; i < (int)data[0]; i++) {
+        layer_sizes[i] = (int)data[i+1];
+    }
+
+    Neural_Network *neural_network = initiate_neural_network(sizeof(layer_sizes) / sizeof(int), layer_sizes);
+
+    int j = 0;
+    for (int i = neural_network->num_layers; i < neural_network->num_layers + neural_network->num_weights; i++) {
+        neural_network->weights[j] = data[i + 1];
+        j++;
+    }
+
+    j = 0;
+    for (int i = neural_network->num_layers + neural_network->num_weights; i < neural_network->num_layers + neural_network->num_weights + neural_network->num_biases; i++) {
+        neural_network->biases[j] = data[i + 1];
+        j++;
+    }
+
+    printf("\n[LOG] Deserialized neural network from file %s.\n\n", file_name);
+
+    return neural_network;
+}
+
 // TODO minst dataset testing
 
 int main()
 {
-    int input_size, output_size;
-    float* training_data = read_cvs_into_dataset("../../res/iris_dataset_training.csv", 1, 135, &input_size, &output_size);
-    float* testing_data = read_cvs_into_dataset("../../res/iris_dataset_testing.csv", 1, 15, &input_size, &output_size);
 
-    int layer_sizes[4] = {input_size, 5,  4, output_size};
-    Neural_Network *neural_network = initiate_neural_network(sizeof(layer_sizes) / sizeof(int), layer_sizes);
+    {
+        int input_size, output_size;
+        float *training_data = read_cvs_into_dataset("../../res/iris_dataset_training.csv", 1, 135, &input_size, &output_size);
+        float *testing_data = read_cvs_into_dataset("../../res/iris_dataset_testing.csv", 1, 15, &input_size, &output_size);
 
-    // ------------------------
+        int layer_sizes[4] = {input_size, 5, 4, output_size};
+        Neural_Network *neural_network = initiate_neural_network(sizeof(layer_sizes) / sizeof(int), layer_sizes);
 
-    train_neural_network(neural_network, training_data, 135, 5.0f, 100000, 100000-1);
+        // ------------------------
 
-    float neural_network_cost = test_neural_network(neural_network, testing_data, 15);
-    printf("[LOG] Cost on testing_data = %f\n", neural_network_cost);
+        train_neural_network(neural_network, training_data, 135, 5.0f, 100000, 100000 - 1);
 
-    // NOTE example from iris_dataset_testing.csv, should return 1.0,0.0,0.0
-    float inputs[4] = {5.0f,3.4f,1.5f,0.2f};
-    float outputs[3];
-    evaluate_neural_network(neural_network, inputs, outputs, 1);
-    printf("{%f %f %f %f} => {%f %f %f}\n", inputs[0], inputs[1], inputs[2], inputs[3], outputs[0], outputs[1], outputs[2]);
+        float neural_network_cost = test_neural_network(neural_network, testing_data, 15);
+        printf("[LOG] Cost on testing_data = %f\n", neural_network_cost);
 
-    // ------------------------
+        // NOTE example from iris_dataset_testing.csv, should return 1.0,0.0,0.0
+        float inputs[4] = {5.0f, 3.4f, 1.5f, 0.2f};
+        float outputs[3];
+        evaluate_neural_network(neural_network, inputs, outputs, 1);
+        printf("{%f %f %f %f} => {%f %f %f}\n", inputs[0], inputs[1], inputs[2], inputs[3], outputs[0], outputs[1], outputs[2]);
 
-    free((void*)training_data);
-    free((void*)testing_data);
-    destroy_neural_network(neural_network);
+        // ------------------------
+
+        serialize_neural_network(neural_network, "iris.nn");
+
+        free((void *) training_data);
+        free((void *) testing_data);
+        destroy_neural_network(neural_network);
+    }
+
+    {
+        Neural_Network *neural_network = deserialize_neural_network("iris.nn");
+        // NOTE example from iris_dataset_testing.csv, should return 1.0,0.0,0.0
+        float inputs[4] = {5.0f, 3.4f, 1.5f, 0.2f};
+        float outputs[3];
+        evaluate_neural_network(neural_network, inputs, outputs, 1);
+        printf("{%f %f %f %f} => {%f %f %f}\n", inputs[0], inputs[1], inputs[2], inputs[3], outputs[0], outputs[1], outputs[2]);
+
+        destroy_neural_network(neural_network);
+    }
 
     return 0;
 }
