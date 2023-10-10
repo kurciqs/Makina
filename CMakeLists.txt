@@ -9,7 +9,8 @@ ELSE()
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror")
 ENDIF()
 
-set(SOURCE_FILES src/main.c)
+set(SOURCE_FILES src/main.c
+        src/makina.h)
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU") # GCC / MinGW
